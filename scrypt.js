@@ -20,15 +20,14 @@ function scrypt(passwd, salt, N, r, p, dkLen) {
     var V  = []; //new Array(128 * r * N);
     var i;
 
-    PBKDF(passwd, new Buffer(salt, encoding='utf8'), 1, B, p * 128 * r);
-    //console.log(new Buffer(B, 'base64').toString('base64'));
+    pbkdf2(passwd, salt, 1, B, p * 128 * r);
 
     for(i = 0; i < p; i++) {
         smix(B, i * 128 * r, r, N, V, XY);
     }
 
-    PBKDF(passwd, B, 1, DK, dkLen);
-    return new Buffer(DK, 'base64').toString('base64');
+    pbkdf2(passwd, B, 1, DK, dkLen);
+    return DK;
 }
 
 function smix(B, Bi, r, N, V, XY) {
