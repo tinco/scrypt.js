@@ -1,9 +1,3 @@
-
-var PBKDF = require("./pbkdf2");
-var hexer = require("./sjcl").codec.hex;
-var crypto = require("crypto");
-var util = require("util");
-
 var MAX_VALUE = 2147483647;
 
 //function scrypt(byte[] passwd, byte[] salt, int N, int r, int p, int dkLen)
@@ -11,7 +5,7 @@ var MAX_VALUE = 2147483647;
  * N = Cpu cost
  * r = Memory cost
  * p = parallelization cost
- * 
+ *
  */
 function scrypt(passwd, salt, N, r, p, dkLen) {
     if (N == 0 || (N & (N - 1)) != 0) throw Error("N must be > 0 and a power of 2");
@@ -27,14 +21,14 @@ function scrypt(passwd, salt, N, r, p, dkLen) {
     var i;
 
     PBKDF(passwd, new Buffer(salt, encoding='utf8'), 1, B, p * 128 * r);
-    //console.log(new Buffer(B, 'base64').toString('base64'));    
-    
+    //console.log(new Buffer(B, 'base64').toString('base64'));
+
     for(i = 0; i < p; i++) {
         smix(B, i * 128 * r, r, N, V, XY);
     }
-    
+
     PBKDF(passwd, B, 1, DK, dkLen);
-    return new Buffer(DK, 'base64').toString('base64');	
+    return new Buffer(DK, 'base64').toString('base64');
 }
 
 function smix(B, Bi, r, N, V, XY) {
@@ -43,7 +37,7 @@ function smix(B, Bi, r, N, V, XY) {
     var i;
 
     arraycopy(B, Bi, XY, Xi, Yi);
-    
+
     for (i = 0; i < N; i++) {
     	arraycopy(XY, Xi, V, i * Yi, Yi);
         blockmix_salsa8(XY, Xi, Yi, r);
@@ -63,7 +57,7 @@ function blockmix_salsa8(BY, Bi, Yi, r) {
     var i;
 
     arraycopy32(BY, Bi + (2 * r - 1) * 64, X, 0, 64);
-    
+
     for (i = 0; i < 2 * r; i++) {
         blockxor(BY, i * 64, X, 0, 64);
         salsa20_8(X);
@@ -117,7 +111,7 @@ function salsa20_8(B) {
     }
 
     for (i = 0; i < 16; ++i) B32[i] = x[i] + B32[i];
-    
+
     for (i = 0; i < 16; i++) {
     	var bi = i * 4;
         B[bi + 0] = (B32[i] >> 0  & 0xff);
@@ -138,50 +132,50 @@ function blockxor(S, Si, D, Di, len) {
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
-		
+
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
-		
+
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
-		
+
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		//32
-		
+
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
-		
+
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
-		
+
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
-		
+
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		D[Di++] ^= S[Si++]; D[Di++] ^= S[Si++];
 		// 64
-		 
-	}	    
+
+	}
 }
 
 function integerify(B, bi, r) {
     var n;
-    
+
     bi += (2 * r - 1) * 64;
 
     n  = (B[bi + 0] & 0xff) << 0;
@@ -192,10 +186,67 @@ function integerify(B, bi, r) {
     return n;
 }
 
+/**
+ * Implementation of PBKDF2 (RFC2898).
+ *
+ * @param secret_key
+ *            Secret key to initialise MAC function.
+ * @param S
+ *            Salt.
+ * @param c
+ *            Iteration count.
+ * @param DK
+ *            Byte array that derived key will be placed in.
+ * @param dkLen
+ *            Intended length, in octets, of the derived key.
+ *
+ * @throws Error
+ */
+function pbkdf2(passwd, S, c, DK, dkLen) {
+	// fixed to 32
+    var hLen = 32;
+
+    if (dkLen > (Math.pow(2, 32) - 1) * hLen) {
+        throw Error("Requested key length too long");
+    }
+
+    var U      = [];
+    var T      = [];
+    var block1 = [];
+
+    var l = Math.ceil(dkLen / hLen);
+    var r = dkLen - (l - 1) * hLen;
+
+    arraycopy(S, 0, block1, 0, S.length);
+    for (var i = 1; i <= l; i++) {
+        block1[S.length + 0] = (i >> 24 & 0xff);
+        block1[S.length + 1] = (i >> 16 & 0xff);
+        block1[S.length + 2] = (i >> 8  & 0xff);
+        block1[S.length + 3] = (i >> 0  & 0xff);
+
+        sha256.init(passwd);
+        sha256.update(block1);
+        U = sha256.finalize();
+
+        arraycopy(U, 0, T, 0, hLen);
+
+        for (var j = 1; j < c; j++) {
+            sha256.update(U);
+            U = sha256.finalize();
+
+            for (var k = 0; k < hLen; k++) {
+                T[k] ^= U[k];
+            }
+        }
+
+        arraycopy(T, 0, DK, (i - 1) * hLen, (i == l ? r : hLen));
+    }
+}
+
 function arraycopy(src, srcPos, dest, destPos, length) {
 	 while (length-- ){
 		 dest[destPos++] = src[srcPos++];
-	 }	
+	 }
 }
 
 function arraycopy16(src, srcPos, dest, destPos, length) {
@@ -205,11 +256,11 @@ function arraycopy16(src, srcPos, dest, destPos, length) {
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
-		 
+
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
-		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];	
+		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 	}
 }
 
@@ -220,35 +271,21 @@ function arraycopy32(src, srcPos, dest, destPos, length) {
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
-		 
-		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
-		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
-		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
-		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];	
-		
+
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
-		 
+
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
-		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];			
+		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
+
+		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
+		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
+		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
+		dest[destPos++] = src[srcPos++]; dest[destPos++] = src[srcPos++];
 		// 32
 	}
-}
-
-
-exports.scrypt = scrypt;
-
-/*
- * Test
- */
-if(process.argv[1] == __filename) {
-	var t1=new Date();
-    console.log('hashing...');
-	var spass = scrypt('golden', "axa", 32, 8, 8 ,32);
-	console.log('Scrypt: '+(new Date()-t1)+' ms');
-	console.log('Password encrypted '+spass);
 }
